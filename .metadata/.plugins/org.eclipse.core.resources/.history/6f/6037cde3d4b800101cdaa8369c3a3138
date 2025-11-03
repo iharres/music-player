@@ -1,0 +1,109 @@
+package musicPlayer;
+
+import javax.sound.sampled.*;
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+
+public class Main {
+
+    private static Clip clip;
+    private static AudioInputStream audioStream;
+    private static int currentSongIndex = 0;
+    private static String[] playlist = {
+            "src/musicPlayer/F16 - The Grey Room _ Golden Palms.wav",
+            "src/musicPlayer/make the visible invisible - Alge.wav"
+    };
+    private static JLabel songLabel;
+    
+    public static void main(String[] args) {
+        // Set up the frame for the GUI
+        JFrame frame = new JFrame("Music Player");
+        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        frame.setSize(400, 200);
+        frame.setLayout(new FlowLayout());
+
+        // Add song label to show current song
+        songLabel = new JLabel("Now Playing: " + playlist[currentSongIndex]);
+        frame.add(songLabel);
+
+        // Add buttons for actions
+        JButton playButton = new JButton("Play");
+        JButton stopButton = new JButton("Stop");
+        JButton resetButton = new JButton("Reset");
+        JButton nextButton = new JButton("Next");
+        JButton prevButton = new JButton("Previous");
+        JButton quitButton = new JButton("Quit");
+
+        frame.add(playButton);
+        frame.add(stopButton);
+        frame.add(resetButton);
+        frame.add(nextButton);
+        frame.add(prevButton);
+        frame.add(quitButton);
+
+        // Set up audio resources
+        initializeAudio();
+
+        // Play button action
+        playButton.addActionListener(e -> clip.start());
+
+        // Stop button action
+        stopButton.addActionListener(e -> clip.stop());
+
+        // Reset button action
+        resetButton.addActionListener(e -> clip.setMicrosecondPosition(0));
+
+        // Next button action
+        nextButton.addActionListener(e -> {
+            currentSongIndex = (currentSongIndex + 1) % playlist.length;
+            switchSong();
+        });
+
+        // Previous button action
+        prevButton.addActionListener(e -> {
+            currentSongIndex = (currentSongIndex - 1 + playlist.length) % playlist.length;
+            switchSong();
+        });
+
+        // Quit button action
+        quitButton.addActionListener(e -> {
+            clip.close();
+            System.exit(0);
+        });
+
+        // Make the frame visible
+        frame.setVisible(true);
+    }
+
+    // Method to initialize the audio resources (audioStream and clip)
+    private static void initializeAudio() {
+        try {
+            File file = new File(playlist[currentSongIndex]);
+            audioStream = AudioSystem.getAudioInputStream(file);
+            clip = AudioSystem.getClip();
+            clip.open(audioStream);
+        } catch (FileNotFoundException e) {
+            System.out.println("Could not find file");
+        } catch (LineUnavailableException e) {
+            System.out.println("Cannot access audio source");
+        } catch (UnsupportedAudioFileException e) {
+            System.out.println("Audio file not supported");
+        } catch (IOException e) {
+            System.out.println("Error loading audio file");
+        }
+    }
+
+    // Switch to a new song
+    private static void switchSong() {
+        // Close the previous clip and load the new one
+        clip.close();
+        initializeAudio();
+        songLabel.setText("Now Playing: " + playlist[currentSongIndex]);
+        clip.start();  // Start playing the new song
+    }
+}
