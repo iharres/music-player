@@ -24,7 +24,6 @@ public class Main {
     private static JLabel name;
     private static JSlider progress;
     private static Timer timer;
-    private static boolean updatingSlider = false;
 
     public static void main(String[] args) {
         // --- UI setup ---
@@ -58,6 +57,7 @@ public class Main {
         frame.add(nextButton);
         frame.add(quitButton);
 
+        // Ensure we clean up even if the window X is clicked
         frame.addWindowListener(new WindowAdapter() {
             @Override
             public void windowClosing(WindowEvent e) {
@@ -125,65 +125,53 @@ public class Main {
     private static void bindProgress() {
         // Update slider ~10x per second
         timer = new Timer(100, e -> {
-            if (clip == null) {
-            	return;
-            }
-            if (progress.getValueIsAdjusting()) {
-            	return;
-            }
+            if (clip == null) return;
+
+            // Don't fight the user while they're dragging
+            if (progress.getValueIsAdjusting()) return;
+
             long length = clip.getMicrosecondLength();
             long position = clip.getMicrosecondPosition();
-            int value = (length > 0) ? (int) Math.min(1000L, (position * 1000L) / length) : 0;
 
-
-            updatingSlider = true;
-            try {
-            	progress.setValue(value);
-            } finally {
-            	updatingSlider = false;
+            if (length > 0) {
+                int value = (int) Math.min(1000L, (position * 1000L) / length);
+                progress.setValue(value);
+            } else {
+                progress.setValue(0);
             }
         });
         timer.start();
 
         // Seek on release
-        progress.addChangeListener(e -> {
-            if(clip == null) {
-            	return;
-            }
-            if(progress.getValueIsAdjusting()) {
-            	return; 
-            }
-            if (updatingSlider) {
-            	return; 
-            }
+        progress.addChangeListener(new ChangeListener() {
+            @Override
+            public void stateChanged(ChangeEvent e) {
+                if (clip == null || progress.getValueIsAdjusting()) return;
 
-            long length = clip.getMicrosecondLength();
-            long target = (length * progress.getValue()) / 1000L;
+                long length = clip.getMicrosecondLength();
+                long target = (length * progress.getValue()) / 1000L;
 
-            boolean wasRunning = clip.isRunning();
-            clip.stop();
-            clip.setMicrosecondPosition(target);
-            if (wasRunning) {
-            	clip.start();
+                boolean wasRunning = clip.isRunning();
+                clip.stop();
+                clip.setMicrosecondPosition(target);
+                if (wasRunning) clip.start();
             }
         });
     }
 
+    // Load the next/prev track properly
     private static void switchSong() {
         try {
+            // Stop and close previous clip
             if (clip != null) {
-                try { 
-                	clip.stop(); 
-                } catch (Exception ignored) {}
-                try { 
-                	clip.close(); 
-                } catch (Exception ignored) {}
+                try { clip.stop(); } catch (Exception ignored) {}
+                try { clip.close(); } catch (Exception ignored) {}
             }
             if (audioStream != null) {
-                try { 
-                	audioStream.close(); 
-                } catch (IOException ignored) {}
+                try { audioStream.close(); } catch (IOException ignored) {}
             }
+
+            // Open the new one
             File file = new File(playlist[currentSongIndex]);
             audioStream = AudioSystem.getAudioInputStream(file);
             clip = AudioSystem.getClip();
@@ -197,21 +185,17 @@ public class Main {
         }
     }
 
+    // Centralized cleanup
     private static void shutdown() {
         if (timer != null) {
             try { timer.stop(); } catch (Exception ignored) {}
         }
         if (clip != null) {
-            try { 
-            	clip.stop(); 
-            	} catch (Exception ignored) {}
-            try { 
-            	clip.close(); 
-            	} catch (Exception ignored) {}
+            try { clip.stop(); } catch (Exception ignored) {}
+            try { clip.close(); } catch (Exception ignored) {}
         }
         if (audioStream != null) {
-            try { audioStream.close(); 
-            } catch (IOException ignored) {}
+            try { audioStream.close(); } catch (IOException ignored) {}
         }
     }
 }
